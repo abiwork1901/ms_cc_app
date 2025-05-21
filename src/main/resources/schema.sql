@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS credit_cards (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    card_number VARCHAR(19) NOT NULL,
+    credit_limit DOUBLE NOT NULL,
+    balance DOUBLE NOT NULL
+); 

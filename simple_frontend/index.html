@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Credit Card Manager</title>
+    <script src="https://unpkg.com/reactive-js@0.8.0/dist/reactive.global.min.js"></script>
+    <style>
+        body { 
+            font-family: Arial, sans-serif; 
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h2, h3 { 
+            color: #333;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+            position: relative;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            color: #666;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            margin-bottom: 5px;
+            transition: all 0.2s ease-in-out;
+        }
+        input:focus {
+            outline: none;
+            border-color: #4CAF50;
+            box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.2);
+        }
+        input.error {
+            border-color: #ff4444;
+            background-color: #fff8f8;
+        }
+        .error-message {
+            color: #ff4444;
+            font-size: 0.9em;
+            margin-top: 5px;
+            display: none;
+            animation: fadeIn 0.2s ease-in-out;
+        }
+        .error-message.show {
+            display: block;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background 0.2s ease-in-out;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button:disabled {
+            background: #cccccc;
+            cursor: not-allowed;
+        }
+        .card-list {
+            list-style: none;
+            padding: 0;
+        }
+        .card-item {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background-color 0.2s ease-in-out;
+        }
+        .card-item:hover {
+            background-color: #f9f9f9;
+        }
+        .card-item:last-child {
+            border-bottom: none;
+        }
+        .card-info {
+            flex: 1;
+        }
+        .card-name {
+            font-weight: bold;
+            color: #333;
+        }
+        .card-number {
+            color: #666;
+            font-family: monospace;
+        }
+        .card-limit, .card-balance {
+            color: #666;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Add Credit Card</h2>
+        <div class="form-group">
+            <label for="name">Name</label>
+            <input type="text" id="name" placeholder="Enter cardholder name">
+            <div id="nameError" class="error-message"></div>
+        </div>
+        <div class="form-group">
+            <label for="cardNumber">Card Number</label>
+            <input type="text" id="cardNumber" placeholder="Enter card number" maxlength="19">
+            <div id="cardNumberError" class="error-message"></div>
+        </div>
+        <div class="form-group">
+            <label for="limit">Credit Limit (£)</label>
+            <input type="number" id="limit" placeholder="Enter credit limit" min="0" step="0.01">
+            <div id="limitError" class="error-message"></div>
+        </div>
+        <button id="addButton" onclick="addCard()">Add Card</button>
+        <div id="error" class="error-message"></div>
+
+        <h3>Card List</h3>
+        <ul id="cardList" class="card-list"></ul>
+    </div>
+
+    <script>
+        const state = reactive({
+            cards: [],
+            loading: false,
+            errors: {
+                name: '',
+                cardNumber: '',
+                limit: '',
+                general: ''
+            }
+        });
+
+        // Add input event listeners for real-time validation
+        document.getElementById('name').addEventListener('input', function() {
+            validateField('name', this.value);
+        });
+
+        document.getElementById('cardNumber').addEventListener('input', function() {
+            validateField('cardNumber', this.value);
+        });
+
+        document.getElementById('limit').addEventListener('input', function() {
+            validateField('limit', this.value);
+        });
+
+        function validateField(field, value) {
+            let errorMessage = '';
+            
+            switch(field) {
+                case 'name':
+                    if (!value.trim()) {
+                        errorMessage = 'Name is required';
+                    } else if (value.trim().length < 2) {
+                        errorMessage = 'Name must be at least 2 characters long';
+                    } else if (/\d/.test(value)) {
+                        errorMessage = 'Name cannot contain numbers';
+                    }
+                    break;
+                case 'cardNumber':
+                    if (!value.trim()) {
+                        errorMessage = 'Card number is required';
+                    } else if (!/^\d{1,19}$/.test(value)) {
+                        errorMessage = 'Card number must be numeric and up to 19 digits';
+                    } else if (!isValidLuhn(value)) {
+                        errorMessage = 'Invalid card number (failed Luhn check)';
+                    }
+                    break;
+                case 'limit':
+                    if (!value) {
+                        errorMessage = 'Credit limit is required';
+                    } else if (isNaN(parseFloat(value))) {
+                        errorMessage = 'Credit limit must be a valid number';
+                    } else if (parseFloat(value) <= 0) {
+                        errorMessage = 'Credit limit must be greater than 0';
+                    } else if (parseFloat(value) > 1000000) {
+                        errorMessage = 'Credit limit cannot exceed £1,000,000';
+                    }
+                    break;
+            }
+
+            showError(field, errorMessage);
+            return !errorMessage;
+        }
+
+        function isValidLuhn(cardNumber) {
+            let sum = 0;
+            let isEven = false;
+            
+            // Loop through values starting from the rightmost digit
+            for (let i = cardNumber.length - 1; i >= 0; i--) {
+                let digit = parseInt(cardNumber.charAt(i));
+
+                if (isEven) {
+                    digit *= 2;
+                    if (digit > 9) {
+                        digit -= 9;
+                    }
+                }
+
+                sum += digit;
+                isEven = !isEven;
+            }
+
+            return (sum % 10) === 0;
+        }
+
+        function showError(field, message) {
+            const errorElement = document.getElementById(`${field}Error`);
+            const inputElement = document.getElementById(field);
+            
+            if (message) {
+                errorElement.textContent = message;
+                errorElement.classList.add('show');
+                inputElement.classList.add('error');
+            } else {
+                errorElement.textContent = '';
+                errorElement.classList.remove('show');
+                inputElement.classList.remove('error');
+            }
+        }
+
+        function validateForm() {
+            const name = document.getElementById('name').value;
+            const cardNumber = document.getElementById('cardNumber').value;
+            const limit = document.getElementById('limit').value;
+
+            const nameValid = validateField('name', name);
+            const cardNumberValid = validateField('cardNumber', cardNumber);
+            const limitValid = validateField('limit', limit);
+
+            return nameValid && cardNumberValid && limitValid;
+        }
+
+        function maskCardNumber(cardNumber) {
+            if (!cardNumber) return '';
+            const lastFour = cardNumber.slice(-4);
+            return `****-****-****-${lastFour}`;
+        }
+
+        function formatCurrency(amount) {
+            return new Intl.NumberFormat('en-GB', {
+                style: 'currency',
+                currency: 'GBP',
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2
+            }).format(amount);
+        }
+
+        function addCard() {
+            if (!validateForm()) return;
+
+            const button = document.getElementById('addButton');
+            button.disabled = true;
+            button.textContent = 'Adding...';
+
+            const card = {
+                name: document.getElementById('name').value,
+                cardNumber: document.getElementById('cardNumber').value,
+                creditLimit: parseFloat(document.getElementById('limit').value)
+            };
+
+            fetch('http://localhost:8080/api/cards', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(card)
+            })
+            .then(res => res.json().then(data => ({ ok: res.ok, body: data })))
+            .then(({ ok, body }) => {
+                if (!ok) {
+                    document.getElementById('error').textContent = body.message;
+                    document.getElementById('error').classList.add('show');
+                } else {
+                    document.getElementById('name').value = '';
+                    document.getElementById('cardNumber').value = '';
+                    document.getElementById('limit').value = '';
+                    document.getElementById('error').textContent = '';
+                    document.getElementById('error').classList.remove('show');
+                    loadCards();
+                }
+            })
+            .catch(error => {
+                document.getElementById('error').textContent = 'Failed to add card. Please try again.';
+                document.getElementById('error').classList.add('show');
+            })
+            .finally(() => {
+                button.disabled = false;
+                button.textContent = 'Add Card';
+            });
+        }
+
+        function loadCards() {
+            fetch('http://localhost:8080/api/cards')
+                .then(res => res.json())
+                .then(cards => {
+                    const list = document.getElementById('cardList');
+                    list.innerHTML = '';
+                    cards.forEach(card => {
+                        const item = document.createElement('li');
+                        item.className = 'card-item';
+                        item.innerHTML = `
+                            <div class="card-info">
+                                <div class="card-name">${card.name}</div>
+                                <div class="card-number">${maskCardNumber(card.cardNumber)}</div>
+                            </div>
+                            <div class="card-details">
+                                <div class="card-limit">Limit: ${formatCurrency(card.creditLimit)}</div>
+                                <div class="card-balance">Balance: ${formatCurrency(card.balance)}</div>
+                            </div>
+                        `;
+                        list.appendChild(item);
+                    });
+                })
+                .catch(error => {
+                    document.getElementById('error').textContent = 'Failed to load cards. Please refresh the page.';
+                    document.getElementById('error').classList.add('show');
+                });
+        }
+
+        // Initial load
+        loadCards();
+    </script>
+</body>
+</html> 

@@ -1,0 +1,21 @@
+spring:
+  r2dbc:
+    url: r2dbc:h2:mem:///creditcarddb
+    username: sa
+    password: ""
+    pool:
+      enabled: true
+  sql:
+    init:
+      schema-locations: classpath:schema.sql
+      mode: always
+
+logging:
+  file:
+    name: logs/application.log
+  level:
+    root: INFO
+    com.creditcard: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n" 

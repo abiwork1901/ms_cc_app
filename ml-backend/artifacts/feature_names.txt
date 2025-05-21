@@ -1,0 +1,9 @@
+name_length
+name_word_count
+name_has_numbers
+name_has_special_chars
+card_number_length
+limit
+limit_is_round
+limit_is_high
+limit_is_low
